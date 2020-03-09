@@ -1,15 +1,32 @@
 #![allow(dead_code)]
 
-use crate::mem_manager::{HeapRef};
-
+// use crate::mem_manager::{HeapRef};
 mod mem_manager;
 
-fn main(){
-    let mut heap = mem_manager::Heap::new();
+use crate::mem_manager::{Heap, Value, Array, Allocation, ManagedValue, HeapRef};
 
+
+fn main(){
+    let mut heap = Heap::new();
+
+    let number = heap.allocate(10.0);
     let string = heap.allocate(String::from("Hello"));
 
-    println!("{:?} : {:?}", string.as_ref(), *string );
+    let array  = heap.allocate(vec![number, string]);
+
+    let test : &Array = array.as_ref();
+    println!("{:?}", *number);
+    // let array = vec![string];
+
+    // let string_val : Option<String> = (*string).into();
+
+    // println!("{:?}", *number);
+
+    // let mut heap = mem_manager::Heap::new();
+    //
+    // let string = heap.allocate(String::from("Hello"));
+    //
+    // println!("{:?} : {:?}", string.as_ref(), *string );
     // let p = heap.allocate_bytes(16);
     //
     // unsafe {
