@@ -8,48 +8,39 @@ use std::mem;
 use std::alloc::{alloc, handle_alloc_error, Layout};
 use std::fmt::{Formatter, Error};
 
+pub trait UpcastValue {
+    fn as_any(&self) -> &dyn Any;
+}
 
-pub trait Allocation {}
+impl<T: Any> UpcastValue for T {
+    fn as_any(&self) -> &dyn Any { self }
+}
+
+pub trait Allocation: UpcastValue +  std::fmt::Debug {}
 
 pub type Array = Vec<HeapRef<dyn Allocation>>;
 pub type ManagedValue = HeapRef<dyn Allocation>;
 pub type Object = Box<Block<dyn Allocation>>;
 
-enum ManagedValueType {
-    Number,
-    String,
-    Array
-}
-
+#[derive(Debug)]
 pub struct Header {
     marked : Cell<bool>,
-    value_type : ManagedValueType
 }
 
+#[derive(Debug)]
 pub struct Block<T: 'static + ?Sized + Allocation>{
     pub header : Header,
     pub data : T
 }
 
-pub struct HeapRef<T: 'static + Allocation + ?Sized>(NonNull<Block<T>>);
-
-
+#[derive(Debug)]
+pub struct HeapRef<T: 'static+ ?Sized + Allocation >(NonNull<Block<T>>);
 
 #[derive(Copy, Clone)]
 pub enum Value {
     Number(HeapRef<f64>),
     String(HeapRef<String>),
     Array(HeapRef<Array>)
-}
-
-impl Into<ManagedValueType> for Value {
-    fn into(self) -> ManagedValueType{
-        match self{
-            Value::Array(_) => ManagedValueType::Array,
-            Value::String(_) => ManagedValueType::String,
-            Value::Number(_) => ManagedValueType::Number,
-        }
-    }
 }
 
 impl <T: 'static + ?Sized + Allocation> Copy for HeapRef<T> {}
@@ -75,14 +66,12 @@ impl Heap {
 
         let mut allocation = Box::new(
             Block {
-                header : Header::new(),
+                header : Header::default(),
                 data
             }
         );
 
         let pointer = unsafe { NonNull::new_unchecked(&mut *allocation)};
-
-        // println!("Allocated {:?}@{:?} : ptr_size {}", &allocation.data, pointer, mem::size_of_val(&pointer));
 
         self.objects.push(allocation);
 
@@ -94,10 +83,9 @@ impl Heap {
     }
 }
 
-impl Header {
-    fn new(t : ManagedValueType) -> Self {
+impl Default for Header {
+    fn default() -> Self {
         Self {
-            value_type : t,
             marked : Cell::new(false),
         }
     }
@@ -119,67 +107,25 @@ impl<T: 'static + ?Sized + Allocation> AsRef<T> for HeapRef<T> {
     }
 }
 
+// impl<T: 'static + ?Sized + Allocation> Into<HeapRef<T>> for HeapRef<ManagedValue>{
+//     fn into(self) -> HeapRef<T> {
+//         unimplemented!()
+//     }
+// }
+
 impl Allocation for String {}
 impl Allocation for f64 {}
 impl Allocation for Array{}
 
-// impl fmt::Display for ManagedValue{
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", self.as_ref())
-//     }
-// }
-//
-// impl fmt::Debug for ManagedValue {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(f, "{:?}", self.as_ref())
-//     }
-// }
-//
-// impl fmt::Display for dyn Allocation {
-//     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-//         write!(f, "{}", self)
-//     }
-// }
-//
-impl fmt::Debug for HeapRef<dyn Allocation> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", *self)
+impl ManagedValue {
+    pub fn downcast<T : Any + Allocation>(self) -> Option<HeapRef<T>>{
+        unsafe {
+            if let Some(downcast_value) = self.0.as_ref().data.as_any().downcast_ref::<T>(){
+                Some(HeapRef(self.0.cast::<Block<T>>()))
+            }else{
+                None
+            }
+        }
     }
 }
 
-
-// impl fmt::Display for ValueType {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             ValueType::String(value) => write!(f, "{}", value.as_ref()),
-//             ValueType::Number(value) => write!(f, "{}", value.as_ref()),
-//             _ => unimplemented!()
-//         }
-//     }
-// }
-//
-// impl fmt::Debug for ValueType {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         match self {
-//             ValueType::String(value) => write!(f, "Managed Value(String): {}", value.as_ref()),
-//             ValueType::Number(value) => write!(f, "Managed Value(Number): {}", value.as_ref()),
-//             _ => unimplemented!()
-//         }
-//     }
-// }
-
-// impl Into<HeapRef<f64>> for HeapRef<dyn Allocation> {
-//     fn into(self) -> HeapRef<f64>{
-//         self as HeapRef<f64>
-//     }
-// }
-
-// impl ValueType {
-//     pub fn value<T : Allocation>(&self) -> &HeapRef<T> {
-//         match self {
-//             ValueType::String(x) => x,
-//             ValueType::Number(x) => x,
-//             ValueType::Array(x) => x
-//         }
-//     }
-// }

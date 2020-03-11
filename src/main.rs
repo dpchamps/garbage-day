@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(unused_imports)]
 
 // use crate::mem_manager::{HeapRef};
 mod mem_manager;
@@ -12,10 +13,28 @@ fn main(){
     let number = heap.allocate(10.0);
     let string = heap.allocate(String::from("Hello"));
 
-    let array  = heap.allocate(vec![number, string]);
+    let array : HeapRef<Array> = heap.allocate(
+        vec![number, string]
+    ).downcast().unwrap();
 
-    let test : &Array = array.as_ref();
-    println!("{:?}", *number);
+    // println!("{:?}", array.iter().map(|x| {*x}));
+    println!("[{:?}, {:?}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
+
+    // let d_cast_num = number.downcast::<f64>().unwrap();
+    // let d_cast_string = string.downcast::<String>().unwrap();
+    //
+    // println!("{:?} -> {}", d_cast_num, *d_cast_num);
+    // println!("{:?} -> {}", d_cast_string, *d_cast_string);
+    //
+    // println!("{:?}", number);
+    // assert_eq!(10.0, *d_cast_num);
+
+    // let array  = heap.allocate(vec![number, string]);
+
+    // let test : HeapRef<f64> = number.into();
+
+    // let test : &Array = array.as_ref();
+    // println!("{:?}", *test);
     // let array = vec![string];
 
     // let string_val : Option<String> = (*string).into();
@@ -49,7 +68,7 @@ fn main(){
     // heap.collect();
     //
     // println!("{}", x.unwrap().as_ref());
-    // assert_eq!(*x.value(), *number);
+    // assert_eq!(10.0, number.as_ref());
 
     // println!("{:?} : {:?}", number.as_ref(), *number );
     // assert_eq!()
