@@ -13,12 +13,27 @@ fn main(){
     let number = heap.allocate(10.0);
     let string = heap.allocate(String::from("Hello"));
 
-    let array : HeapRef<Array> = heap.allocate(
-        vec![number, string]
-    ).downcast().unwrap();
+    // assert_eq!(10.0, *number);
+    println!("{}", *number.downcast::<String>().unwrap());
+    // let array : HeapRef<Array> = heap.allocate(
+    //     vec![number, string]
+    // ).downcast().unwrap();
+    //
+    // println!("{:?}", *array);
+    // println!("{:?}", *array[0].downcast::<f64>().unwrap());
+    //
+    // println!("[{:?}, {:?}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
+    // println!("[{}, {}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
+    // println!("[{:?}, {:?}]", number, string);
+    //
+    // heap.collect();
+    //
+    // // println!("{:?}", *array);
+    // // println!("{:?}", *array[0].downcast::<f64>().unwrap());
+    // // println!("[{:?}, {:?}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
+    // println!("[{}, {}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
+    // println!("[{:?}, {:?}]", number, string);
 
-    // println!("{:?}", array.iter().map(|x| {*x}));
-    println!("[{:?}, {:?}]", *number.downcast::<f64>().unwrap(), *string.downcast::<String>().unwrap());
 
     // let d_cast_num = number.downcast::<f64>().unwrap();
     // let d_cast_string = string.downcast::<String>().unwrap();

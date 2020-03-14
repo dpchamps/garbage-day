@@ -79,7 +79,9 @@ impl Heap {
     }
 
     pub fn collect(&mut self){
-        self.objects.retain(|val| val.header.marked.get())
+        println!("Collecting: {}", self.objects.len());
+        self.objects.retain(|val| val.header.marked.get());
+        println!("Done Collecting: {}", self.objects.len());
     }
 }
 
@@ -107,25 +109,16 @@ impl<T: 'static + ?Sized + Allocation> AsRef<T> for HeapRef<T> {
     }
 }
 
-// impl<T: 'static + ?Sized + Allocation> Into<HeapRef<T>> for HeapRef<ManagedValue>{
-//     fn into(self) -> HeapRef<T> {
-//         unimplemented!()
-//     }
-// }
-
 impl Allocation for String {}
 impl Allocation for f64 {}
 impl Allocation for Array{}
 
 impl ManagedValue {
     pub fn downcast<T : Any + Allocation>(self) -> Option<HeapRef<T>>{
-        unsafe {
-            if let Some(downcast_value) = self.0.as_ref().data.as_any().downcast_ref::<T>(){
-                Some(HeapRef(self.0.cast::<Block<T>>()))
-            }else{
-                None
-            }
+        if let Some(downcast_value) =  (*self).as_any().downcast_ref::<T>() {
+            Some(HeapRef(self.0.cast::<Block<T>>()))
+        }else{
+            None
         }
     }
 }
-
