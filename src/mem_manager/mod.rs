@@ -1,12 +1,7 @@
-use std::collections::{HashMap, HashSet};
 use std::ptr::NonNull;
-use std::ops::{Deref, DerefMut};
-use std::cell::{Cell, RefCell};
+use std::ops::{Deref};
+use std::cell::{Cell};
 use std::any::Any;
-use std::fmt;
-use std::mem;
-use std::alloc::{alloc, handle_alloc_error, Layout};
-use std::fmt::{Formatter, Error};
 
 pub trait UpcastValue {
     fn as_any(&self) -> &dyn Any;
@@ -115,10 +110,27 @@ impl Allocation for Array{}
 
 impl ManagedValue {
     pub fn downcast<T : Any + Allocation>(self) -> Option<HeapRef<T>>{
-        if let Some(downcast_value) =  (*self).as_any().downcast_ref::<T>() {
+        if let Some(_) =  (*self).as_any().downcast_ref::<T>() {
             Some(HeapRef(self.0.cast::<Block<T>>()))
         }else{
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::mem_manager::Heap;
+
+    #[test]
+    fn it_allocates(){
+        // create a heap instance
+        let mut heap = Heap::new();
+
+        // allocate something
+        let value = heap.allocate(String::from("I'm a string"));
+
+        // use the value
+        assert_eq!(String::from("I'm a string"), *value.downcast::<String>().unwrap());
     }
 }
