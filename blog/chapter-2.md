@@ -21,3 +21,20 @@ Mutating data without the allocator's consent would be a terrible idea. It needs
 in order to be effective. If we were to allow arbitrary side-effects to data from outside the allocator, it would
 render our memory management model entirely useless. It may not be obvious now, but when we get into actual garbage collection strategies,
 we'll see how dangerous that would be.
+
+*note* it would've been possible to recklessly cast our pointer to `Block<T>`, but that would be a terrible idea!
+
+Consumers have entered into a _Blood Pact_ with us! If we we're to simply cast our pointer without checking the underlying data in this downcast step, we'd be handing it off to our consumers in a potentially _invalid_ state:
+```rust
+impl ManagedValue {
+    pub fn downcast<T : Any + Allocation>(self) -> HeapRef<T>{
+       HeapRef(self.0.cast::<Block<T>>())
+    }
+}
+
+let number = heap.allocate(10.0);
+
+println!("{}", number.downcast<String>()); // SEG FAULT :O
+```
+
+So it's a bad idea.

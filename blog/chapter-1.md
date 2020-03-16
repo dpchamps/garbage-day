@@ -6,19 +6,19 @@
 
 Like a lot of other engineers out there, I've spent most of my career designing products in a language that offers some form of Automatic Memory Management.
 
-With AMM, we enter into a blood-pact with our runtime: trading control for safety and convenience. Most of the time, this trade-off works out just fine, if not optimally. Managing memory is a better job for the robots. A perfect candidate for automation.
+With AMM, we enter into a blood-pact with our runtime: trading control for safety and convenience. Most of the time, this oath works in our favor, if not optimally. Managing memory is a better job for the robots.
 
-However, things can and do go wrong. When they do, it's up to the developer who has been tasked with investigating to jump head first into the runtime internals and start poking at the edges, dissecting heap snapshots. 
-Having encountered several moments like these throughout my career, I've found that understanding _what_ is going on behind the scenes is at least moderately important to be able to efficiently fix and diagnose these issues. Otherwise, it leads to a lot of guesswork, staring at the hieroglyphics of an allocation graph -- wondering what all of it could mean.
+However, things can and do go wrong. When they do, it's a developer who has to jump head-first into runtime internals. 
+Having encountered several moments like these throughout my career, I've found that understanding _what_ is going on behind the scenes is at least moderately important to be able to efficiently fix and diagnose these issues. Otherwise, it leads to a lot of guesswork, staring at the hieroglyphics of an allocation graph, poking at the edges, dissecting heap snapshots -- wondering what all of it could mean.
 
-Learning about and poking at the internals of your runtime might feel a bit paradoxical. In one light, we choose these higher-level languages in order to get away from the low-level inconveniences. To be a little less imperative, so that we might solve our problems more efficiently. 
+Getting intimate with the internals of your runtime might feel counter-intuitive. We choose these higher-level languages in order to get away from such low-level inconveniences. To be less imperative, so that we might solve our problems more efficiently. 
 
-At the same we have to be mindful of this predicament: that our declarative wonderland is really just propped up by bits. Occasionally we need to know about them, what they're up to and why they might be acting up. 
+At the same we must be mindful of this predicament: that our wonderland of higher-level abstraction is really just propped up by bits. Occasionally we need to know about them, what they're up to and why they might be acting up. 
 
 
 My goal is to take this descent into _a_ runtime even further -- into the abstract: to learn not just about how one runtime works, but how Runtime _s_ are designed, in the general sense. In the process I hope to learn a lot about a thing not a ton of people talk about in their day-to-day and to share my findings with you.
 
-Who knows, maybe the next time you're looking at a graph of your process in prod and start wondering what could be leaking memory, you'll be more equipped to deal with it. Ready even.
+Who knows, maybe the next time you're looking at the ballooning memory of a process in prod and start wondering what could be leaking memory, you'll be more equipped to deal with it. Ready even.
 
 #### Getting started
 
@@ -38,7 +38,7 @@ offering wonderful zero-cost abstractions to introduce some safety around the in
 
 ---
 
-#### Step 0 - The Allocator
+#### The Allocator
 
 In order to study different methods of garbage collection, we first need _something_ to collect.
 
@@ -75,13 +75,12 @@ fn main() {
 }
 ```
 
-It's not too hard to see similar structure from the above two programs: 
+Though different, It's not too hard to find similar structure from the above two programs: 
 
 * Create a pointer
-* Allocate some memory on the heap 
-* Place a single char into that space. 
-
-We can then print out the address in memory the pointer is pointing to along with the contents of that memory.
+* Allocate some memory 
+* Place a single char into that space
+* Print the address the pointer is pointing to and the contents of that memory.
 
 Now let's compare that to something in Javascript:
 
@@ -91,7 +90,7 @@ const char = 'a';
 console.log(char);
 ```
 
-A similar program is out our reach in JS-Land, because all memory management is handled by the JS-Runtime. The best we can do is output the value of `char`. Our program is blissfully unaware of the where and how of the memory we're using. Although, it is possible to see what that underlying data structure looks like if we _really_ want to
+A similar program is out our reach in JS-Land, because all memory management is handled by the JS-Runtime. The best we can do is output the value of `char`. Our program is blissfully unaware of the where and how of the memory we're using. Although, it is possible to see what that underlying data structure looks like if we _really_ want to:
 
 ```bash
 # ... find string in heap
@@ -99,11 +98,13 @@ A similar program is out our reach in JS-Land, because all memory management is 
 0x77b167c7969:<String: "a">
 ```
 
-This exercise turns out to be helpful, because this is the process we want ultimately need to emulate:
+We don't even have control over the data-type. There's no way to allocate memory for a single char. The best we can get is a String datatype as outlined by whatever javascript engine is driving -- v8 in the case.
 
-We'll allocate a chunk of memory based on the size of the value, and pass around a pointer to that region of memory. Our GC algorithms will determine when that pointer can no longer be referenced by the (nonexistent) runtime and yield it back to the memory manager.
+This is a helpful exercise at least, because this is the process we'll need to emulate.
 
-Enough typing! Let's get our hands dirty. Let's start with our imaginary Runtime values, something similar to whatever, `<String: "a">` is above.
+The idea will be to allocate a chunk of memory based on the size of the value, and pass around a pointer to that region of memory. The various GC algorithms will determine when that pointer can no longer be referenced by the (nonexistent) runtime and yield it back to the memory manager.
+
+Enough theory and planning, let's get our hands dirty! A good place to start is with the imaginary Runtime values, something similar to whatever, `<String: "a">` is above.
 
 > Design note: we'll assume that our runtime allocates _every_ value in the heap.
 
@@ -114,9 +115,7 @@ enum Value {
 }
 ```
 
-Let's consider what the above code tells us.
-
-We provide the definition of two separate values to our runtime. In user-land, a programmer might write something like this:
+Starting with something straightforward: the definition for two separate values to our runtime. In user-land, a programmer might write something like this:
 
 ``` 
 var stringVar = "Hello"
@@ -125,7 +124,7 @@ var numberVar = 10.8
 
 The runtime will parse the above code, and then allocate memory for these variables.
 
-In order to provide a generic interface for allocating and managing memory, we'll need to allocate _more_ than the requested data for administrative purposes:
+We'll need to allocate _more_ than just the requested data for administrative purposes, though. So let's create some data structures for that now.
 
 ```rust
 pub trait Allocation {}
@@ -133,9 +132,9 @@ pub trait Allocation {}
 pub struct Header {}
 ```
 
-We start with the `Allocation` trait. This will provide a way for us to specify an interface for all of the values that can be managed. It's empty now, but we'll expand it as we go.
+The `Allocation` trait will provide a way for us to specify an interface for all of the values that can be managed. It's empty now, but we'll expand it as we go.
 
-Next, the `Header` struct -- Again, empty for now -- will live alongside whatever actual data has been requested for allocation. The header will be used for keeping tabs on our memory.
+Next, the `Header` struct  will live alongside whatever actual data has been requested for allocation. The header will be used for store meta-data for the allocated objects. For now, it will live alongside the data -- we'll see later some GC optimizations that call for storing certain fields elsewhere.
 
 Finally, we need a definition for the actual things we'll be allocating as well as a data structure for referencing them:
 
@@ -162,10 +161,12 @@ This indicates that our heap objects may be a generic type with the following bo
 | ?Sized     | That our value may or may not have a known size at compile time. |
 | Allocation | That our value implements our Allocation trait                   |
 
-
-`Block` is the full data structure we'll be allocating, whereas the `Object` type is an alias for our `Box`ed `Block`.
-
-`HeapRef` is the Smart Pointer our Memory Manager will pass back to the Runtime for referencing. It's a tuple struct that contains one element: a raw pointer to an allocated block.
+The Data structures are all related 
+| name       | purpose                                                          |
+|------------|------------------------------------------------------------------|
+| `Block`    | The data structure being allocated.                              |
+| `Object`   | The `Box`ed Block, a way to refer to active data that has been allocated.|
+| `HeapRef`  | A Smart Pointer that points to the location of the `Object` in memory. |
 
 > We allocate an `Object` on the heap and point to the location in memory with a `HeapRef`
 
@@ -333,28 +334,10 @@ Perhaps not the _greatest_ implementation, but it does the job for now. Let's br
     - If so, we can safely cast our pointer to a block of type `T`,
     - Otherwise, we return `None` indicating that the corresponding type is incompatible.
 
-*note* it would've been possible to recklessly cast our pointer to `Block<T>`, but that would be a terrible idea!
 
-Consumers have entered into a _Blood Pact_ with us! If we we're to simply cast our pointer without checking the underlying data in this downcast step, we'd be handing it off to our consumers in a potentially _invalid_ state:
-```rust
-impl ManagedValue {
-    pub fn downcast<T : Any + Allocation>(self) -> HeapRef<T>{
-       HeapRef(self.0.cast::<Block<T>>())
-    }
-}
 
-let number = heap.allocate(10.0);
+🙌  Alright! We've got a functioning allocator and one test. 🙌 
 
-println!("{}", number.downcast<String>()); // SEG FAULT :O
-```
+Celebrations are in order. There are a few missing key features, but that's enough code and theory for one day.
 
-So it's a bad idea.
-
-And that was a ton of stuff!
-
-🙌  But we've got a functioning allocator, and one test. 🙌 
-
-There are a few missing key features, but that's been enough code for today.
-
-Next, we'll add two necessary concepts to our allocator, one more `Value` variant and implement a _ton_ of traits 
-for `HeapRef` and `ValueType`.
+Next, we'll start exploring the most straight forward Garbage Collection strategy: Mark-Sweep. 
