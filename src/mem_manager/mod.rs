@@ -1,7 +1,8 @@
 use std::ptr::NonNull;
-use std::ops::{Deref};
+use std::ops::{Deref, DerefMut};
 use std::cell::{Cell};
 use std::any::Any;
+use std::cmp::Ordering;
 
 pub trait UpcastValue {
     fn as_any(&self) -> &dyn Any;
@@ -15,7 +16,6 @@ pub trait Allocation: UpcastValue +  std::fmt::Debug {}
 
 pub type Array = Vec<HeapRef<dyn Allocation>>;
 pub type ManagedValue = HeapRef<dyn Allocation>;
-pub type Object = Box<Block<dyn Allocation>>;
 
 #[derive(Debug)]
 pub struct Header {
@@ -47,7 +47,7 @@ impl <T: 'static + ?Sized + Allocation> Clone for HeapRef<T> {
 }
 
 pub struct Heap {
-    objects : Vec<Object>,
+    objects : Vec<Box<Block<dyn Allocation>>>,
 }
 
 impl Heap {
@@ -57,7 +57,7 @@ impl Heap {
         }
     }
 
-    pub fn allocate<T: 'static + Allocation>(&mut self, data : T) -> ManagedValue {
+    pub fn allocate<T: 'static + Allocation>(&mut self, data : T) -> HeapRef<T> {
 
         let mut allocation = Box::new(
             Block {
@@ -98,9 +98,27 @@ impl<T: 'static + ?Sized + Allocation> Deref for HeapRef<T> {
     }
 }
 
+impl<T: 'static + ?Sized + Allocation> DerefMut for HeapRef<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            &mut (self.0.as_mut()).data
+        }
+    }
+}
+
 impl<T: 'static + ?Sized + Allocation> AsRef<T> for HeapRef<T> {
     fn as_ref(&self) -> &T {
         &*self
+    }
+}
+
+impl<T: 'static + ?Sized + Allocation + PartialEq> PartialEq for HeapRef<T>{
+    fn eq(&self, other: &Self) -> bool {
+        PartialEq::eq(self.as_ref(),  other.as_ref())
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+        PartialEq::ne(self.as_ref(), other.as_ref())
     }
 }
 
@@ -109,18 +127,24 @@ impl Allocation for f64 {}
 impl Allocation for Array{}
 
 impl ManagedValue {
-    pub fn downcast<T : Any + Allocation>(self) -> Option<HeapRef<T>>{
+    pub fn downcast<T : Any + Allocation>(self) -> Result<HeapRef<T>, ManagedValue>{
         if let Some(_) =  (*self).as_any().downcast_ref::<T>() {
-            Some(HeapRef(self.0.cast::<Block<T>>()))
+            Ok(HeapRef(self.0.cast::<Block<T>>()))
         }else{
-            None
+            Err(self)
         }
+    }
+}
+
+impl <T: 'static + Allocation> From<HeapRef<T>> for ManagedValue {
+    fn from(item: HeapRef<T>) -> Self {
+        HeapRef(item.0)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::mem_manager::Heap;
+    use crate::mem_manager::{Heap, HeapRef, ManagedValue};
 
     #[test]
     fn it_allocates(){
@@ -131,6 +155,36 @@ mod tests {
         let value = heap.allocate(String::from("I'm a string"));
 
         // use the value
-        assert_eq!(String::from("I'm a string"), *value.downcast::<String>().unwrap());
+        assert_eq!(String::from("I'm a string"), *value);
+    }
+
+    #[test]
+    fn it_upcasts(){
+        let mut heap = Heap::new();
+
+        let value = heap.allocate(String::from("hello"));
+        let upcast : ManagedValue = value.into();
+    }
+
+    #[test]
+    fn it_downcasts(){
+        let mut heap = Heap::new();
+
+        let value : ManagedValue = heap.allocate(10.0).into();
+
+        assert_eq!(10.0, *value.downcast::<f64>().unwrap())
+    }
+
+    #[test]
+    fn mutable_casts(){
+        let mut heap = Heap::new();
+
+        let mut value = heap.allocate(10.0);
+        let mut managed : ManagedValue = value.into();
+
+        *value = 11.0;
+
+        assert_eq!(11.0, *value);
+        assert_eq!(11.0, *managed.downcast::<f64>().unwrap());
     }
 }

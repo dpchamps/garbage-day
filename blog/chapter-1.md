@@ -4,14 +4,12 @@
 
 #### Chapter 1
 
-Like a lot of other engineers out there, I've spent most of my career designing products in a language that offers some form of Automatic Memory Management.
-
-With AMM, we enter into a blood-pact with our runtime: trading control for safety and convenience. Most of the time, this oath works in our favor, if not optimally. Managing memory is a better job for the robots.
+Choosing a language with GC is sort of like entering into a blood-pact. We use it to trade control for safety and convenience. And generally, this is a _great_ trade: Managing memory is a better job for the robots.
 
 However, things can and do go wrong. When they do, it's a developer who has to jump head-first into runtime internals. 
-Having encountered several moments like these throughout my career, I've found that understanding _what_ is going on behind the scenes is at least moderately important to be able to efficiently fix and diagnose these issues. Otherwise, it leads to a lot of guesswork, staring at the hieroglyphics of an allocation graph, poking at the edges, dissecting heap snapshots -- wondering what all of it could mean.
+Having encountered several moments like these throughout my career, I've found that understanding _what_ is going on behind the scenes is  moderately important to be able to efficiently fix and diagnose these issues. Otherwise, it leads to a lot of guesswork, staring at the hieroglyphics of an allocation graph, poking at the edges, dissecting heap snapshots -- wondering what all of it could mean.
 
-Getting intimate with the internals of your runtime might feel counter-intuitive. We choose these higher-level languages in order to get away from such low-level inconveniences. To be less imperative, so that we might solve our problems more efficiently. 
+Going deep into the internals of a runtime might feel like a waste of time. We choose these higher-level languages in order to get away from such low-level inconveniences. To be less imperative, so that we might solve our problems more efficiently. 
 
 At the same we must be mindful of this predicament: that our wonderland of higher-level abstraction is really just propped up by bits. Occasionally we need to know about them, what they're up to and why they might be acting up. 
 

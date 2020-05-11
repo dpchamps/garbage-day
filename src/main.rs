@@ -8,13 +8,13 @@ use crate::mem_manager::{Heap, Value, Array, Allocation, ManagedValue, HeapRef};
 
 
 fn main(){
-    let mut heap = Heap::new();
-
-    let number = heap.allocate(10.0);
-    let string = heap.allocate(String::from("Hello"));
-
-    // assert_eq!(10.0, *number);
-    println!("{}", *number.downcast::<String>().unwrap());
+    // let mut heap = Heap::new();
+    //
+    // let number = heap.allocate(10.0);
+    // let string = heap.allocate(String::from("Hello"));
+    //
+    // // assert_eq!(10.0, *number);
+    // println!("{}", *number.downcast::<String>().unwrap());
     // let array : HeapRef<Array> = heap.allocate(
     //     vec![number, string]
     // ).downcast().unwrap();
